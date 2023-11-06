@@ -1,0 +1,578 @@
+---
+title: "`r params$prj_cd`"
+date: "Compiled on: `r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+
+params:
+  prj_cd: LOA_IA21_NSH
+
+  
+---
+<!-- this document is intended to be run using "knit with parameters" -->
+<!-- the user can then provide a project code to generate a report -->
+<!-- alternatively the prj_cd parameter can be edited above -->
+<!-- save the report output to the Reports folder -->
+<!-- if using the API to fetch your data, connect to VPN and switch 'eval=FALSE' from the setup_API chunk to setup_Access -->
+<!-- for help with glfishr commands go to: https://github.com/AdamCottrill/glfishr -->
+<!-- under 'Tools -> Global Options -> RMarkdown' ensure that the dropdown 'Evaluate chunks in directory' is set to 'Projects' -->
+<!-- this text above this line will not be rendered in the final document -->
+
+
+```{r setup_Access, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+library(gfsR) # due to plyr namespace conflicts gfsR needs to be loaded before dplyr
+library(httr)
+library(jsonlite)
+library(dplyr)
+library(RODBC)
+library(tidyr)
+
+src_db <- "./Data/Raw/LOA_IA21_NSH.accdb"
+
+fetch_data <- function(table, prj_cd, src_db){
+  DBConnection <- odbcConnectAccess2007(src_db, uid = "", pwd = "")
+  dat <- sqlFetch(DBConnection, table, as.is=TRUE, stringsAsFactors=FALSE)
+  odbcClose(DBConnection)
+  return(dat)
+}
+fn011 <- fetch_data("FN011", params$prj_cd, src_db)
+fn012 <- fetch_data("FN012", params$prj_cd, src_db) # not in GreatLakestemplate2
+fn013 <- fetch_data("FN013", params$prj_cd, src_db) # not in GreatLakestemplate2
+fn014 <- fetch_data("FN014", params$prj_cd, src_db) # not in GreatLakestemplate2
+
+fn021 <- fetch_data("FN021", params$prj_cd, src_db) # not in GreatLakestemplate2
+fn022 <- fetch_data("FN022", params$prj_cd, src_db)
+fn026 <- fetch_data("FN026", params$prj_cd, src_db)
+fn028 <- fetch_data("FN028", params$prj_cd, src_db)
+fn121 <- fetch_data("FN121", params$prj_cd, src_db)
+#fn122 <- fetch_data("FN122", params$prj_cd, src_db)
+fn123 <- fetch_data("FN123", params$prj_cd, src_db)
+fn124 <- fetch_data("FN124", params$prj_cd, src_db)
+fn125 <- fetch_data("FN125", params$prj_cd, src_db)
+fn126 <- fetch_data("FN126", params$prj_cd, src_db)
+fn127 <- fetch_data("FN127", params$prj_cd, src_db)
+
+
+##fn121 edits
+# LON missing one value because of negative
+fn121$DD_LAT0<-as.numeric(fn121$DD_LAT0)
+fn121$DD_LON0<-as.numeric(fn121$DD_LON0)*-1
+
+
+##fn123
+fn123$CATCNT<-as.numeric(fn123$CATCNT)
+fn123$SUBCNT<-as.numeric(fn123$SUBCNT)
+fn123$BIOCNT<-as.numeric(fn123$BIOCNT)
+fn123 <- append.spc.names(fn123)
+
+#fn124
+fn124$SIZCNT<-as.numeric(fn124$SIZCNT)
+
+#fn125
+fn125$FLEN<-as.numeric(fn125$FLEN)
+fn125$TLEN<-as.numeric(fn125$TLEN)
+
+prj_ldr <- paste(fn011$PRJ_LDR.FIRST_NAME, 
+                 fn011$PRJ_LDR.LAST_NAME, sep =" ")
+
+
+prj_abstract <- "abstract text"
+
+fn121$EFFDUR<-fn121$EFFDURCALC
+fn123$CATCNT<-as.numeric(fn123$CATCNT)
+fn123$BIOCNT<-as.numeric(fn123$BIOCNT)
+
+n_nets <- nrow(fn121)
+n_sites <- length(unique(fn121$GRID))
+n_species <- length(unique(fn123$SPC))
+mn_effdur <- round(mean(fn121$EFFDURCALC), 1)
+min_effdur <- round(min(fn121$EFFDURCALC),1)
+max_effdur <- round(max(fn121$EFFDURCALC), 1)
+
+spc_sum <- fn123 |> group_by(SPC_NM) |> 
+  summarize(N = sum(CATCNT)) 
+spc_sum <- arrange(spc_sum, desc(N))
+```
+
+```{r}
+#try fetching from api
+library(devtools)
+devtools::install_github("AdamCottrill/glfishr")
+library(glfishr)
+fn121test<-get_FN121_Trapnet(list(prj_cd="LOA_IA22_NSB"))
+```
+
+## PROJECT COMPLETION REPORT
+
+- Project Name: `r fn011$PRJ_NM`
+- Project Code: `r params$prj_cd`
+- Project Lead: `r prj_ldr`
+- Start Date: `r fn011$PRJ_DATE0`
+- End Date: `r fn011$PRJ_DATE1`
+
+
+## Abstract
+`r prj_abstract`
+
+## Data Summary
+The project had `r n_nets` net lifts at `r n_sites` locations. The average effort duration was **`r mn_effdur` hours (range: `r min_effdur` - `r max_effdur` hours)**.
+
+There were `r n_species` species and `r sum(fn123$CATCNT)` fish caught over the duration of this project, `r sum(fn123$BIOCNT)` of which were bio sampled. The majority of species caught were **`r spc_sum$SPC_NM[1]` (n=`r spc_sum$N[1]`)**, followed by **`r spc_sum$SPC_NM[2]` (n=`r spc_sum$N[2]`)** and **`r spc_sum$SPC_NM[3]` (n=`r spc_sum$N[3]`)**
+
+## Project Map
+```{r prjmap, message=FALSE, warnings=FALSE, fig.cap= paste("Figure 1. Location data for", fn011$PRJ_NM, sep = " ")}
+library(leaflet)
+
+fn121<-fn121%>%mutate(flag=ifelse(SAM=="003"|SAM=="019"|SAM=="017"|SAM=="005"|SAM=="009"|SAM=="010"|SAM=="013",1,0)) 
+pal <- colorFactor(
+  palette = c('blue','red'),
+  domain = fn121$flag
+)
+fn121 <- fn121 |> mutate(maplabel = paste("SAM:", SAM, sep = " "))
+
+sitemap<-leaflet(fn121) |> addTiles() |> addCircles(lat = ~DD_LAT0, lng = ~DD_LON0, color = ~pal(flag),popup=paste(fn121$maplabel,"<br>","GRID:",fn121$GRID))
+sitemap
+
+
+```
+
+&nbsp;
+
+
+### Check that SAMs are plotted in the correct GRID
+```{r warnings=FALSE, message=FALSE}
+
+library(sf)
+grids <- st_read(dsn = "./Spatial/allgrids/big_grid.shp")
+colnames(grids)
+#st_is_valid(grids)
+
+#my_crs <- st_crs(grids);my_crs
+
+
+grids<-grids[grids$grid>0,] #grid attribute has grid # indicated for the 42 Hamilton grids
+grids<-grids%>%sf::st_transform('+proj=longlat +datum=WGS84') #need this for leaflet to work
+
+leaflet()%>%addTiles()%>%addPolygons(data=grids,label = ~grid, color = "grey", labelOptions = labelOptions(noHide=T,direction = "top"))%>%addCircles(data=fn121,lat= ~DD_LAT0, lng = ~DD_LON0, color = ~pal(flag),popup=paste(fn121$maplabel,"<br>","GRID:",fn121$GRID),labelOptions = labelOptions(noHide=T))
+
+#export centriods
+coordinates<-st_centroid(grids$geometry)
+options(digits = 15)
+centriodscoords<-st_coordinates(coordinates)
+centriods<-cbind(grids,centriodscoords)%>%select(c("grid","X","Y"))%>%filter(grid>0)
+
+#write.csv(centriods,"DDcoordinates_allgrids.csv",row.names=F)
+```
+
+##### Click on point to see SAM and GRID #s
+
+&nbsp;
+
+
+#### Correct coords and replot
+```{r}
+#following has now been corrected by Kelly in access so not needed 
+#oldcoords<-fn121%>%filter(SAM %in% c("010","013","009","005","003","017","019"))%>%select(SAM,GRID,DD_LAT0,DD_LON0)
+#fn121<-fn121%>%mutate(DD_LAT0=ifelse(SAM=="010",43.28679,DD_LAT0))
+#fn121<-fn121%>%mutate(DD_LAT0=ifelse(SAM=="013",43.28361,DD_LAT0));fn121<-fn121%>%mutate(DD_LON0=ifelse(SAM=="013",-79.87864,DD_LON0))
+#fn121<-fn121%>%mutate(DD_LAT0=ifelse(SAM=="009",43.28162,DD_LAT0),DD_LON0=ifelse(SAM=="009",-79.88862,DD_LON0))
+#fn121<-fn121%>%mutate(DD_LAT0=ifelse(SAM=="005",43.27373,DD_LAT0),DD_LON0=ifelse(SAM=="005",-79.86855,DD_LON0))
+#fn121<-fn121%>%mutate(DD_LAT0=ifelse(SAM=="003",43.31068,DD_LAT0),DD_LON0=ifelse(SAM=="003",-79.82014,DD_LON0))
+#fn121<-fn121%>%mutate(DD_LAT0=ifelse(SAM=="017",43.28625,DD_LAT0),DD_LON0=ifelse(SAM=="017",-79.79203,DD_LON0))
+#fn121<-fn121%>%mutate(DD_LAT0=ifelse(SAM=="019",43.30347,DD_LAT0),DD_LON0=ifelse(SAM=="019",-79.83886,DD_LON0))
+
+sitemap2<-leaflet(fn121) |> addTiles() |> addCircles(lat = ~DD_LAT0, lng = ~DD_LON0,color="red",fillColor ="red"  ,radius=50,fillOpacity=1,popup=paste(fn121$maplabel,"<br>","GRID:",fn121$GRID))%>%addProviderTiles("Esri.WorldImagery")
+sitemap2
+
+#get dataframe with new coordinates and move old coordinates to comment field to send to Kelly 
+#changedcoords<-fn121%>%filter(SAM %in% c("010","013","009","005","003","017","019"))%>%select(SAM,GRID,DD_LAT0,DD_LON0)
+#move old coords to comment field
+#oldcoords<-mutate(oldcoords, COMMENT=paste("original coordinates",DD_LAT0,DD_LON0))%>%select(SAM,GRID,COMMENT)
+#newcoordsrecord<-full_join(changedcoords,oldcoords)
+
+#write.csv(newcoordsrecord, file = "Data/changedcoordinates.csv", row.names = F)
+
+```
+
+&nbsp;
+
+#### Check for set issues
+
+```{r}
+library(knitr)
+library(kableExtra)
+#check for issues
+setissues<-filter(fn121, EFFST>1)%>%select(SAM,GRID,EFFST,COMMENT2)
+kable(setissues,caption="Sets with issues:")%>%kable_classic(full_width=F, html_font = "Cambria", position="left")
+#SAM22 had the large hole in lead
+
+fn123%>%filter(SAM=="022")
+```
+
+#### SAM 22 was removed due to set issue
+
+&nbsp;
+
+
+### Site info
+
+```{r}
+fn121$deptarget<-ifelse(fn121$GRDEPMAX > 1.9 & fn121$GRDEPMAX < 2.6 , "ontarget", "above")
+fn121$deptarget<-ifelse(fn121$GRDEPMAX < 2, "below",fn121$deptarget)
+fn121<-fn121%>%separate(SITP,sep="")
+
+siteinfo<-data.frame(
+  WaterTemperature = paste(min(fn121$SITEM1),max(fn121$SITEM1), sep="-"),
+  Numoflifts = nrow(fn121),
+  Numoflifts_targetdepth = sum(fn121$deptarget=="ontarget"),
+  Numoflifts_belowtarget = sum(fn121$deptarget=="below"),
+  Numoflifts_abovetarget = sum(fn121$deptarget=="above")
+)
+```
+
+
+
+## Species Catches
+
+
+```{r spccatch}
+library(ggplot2)
+
+fn121<-filter(fn121, !SAM=="022")
+fn123<-filter(fn123, !SAM=="022")
+
+catch_sum <- fn123  |> 
+  group_by(SPC_NM) |> 
+  summarize(CATCNT = sum(CATCNT, na.rm = T), BIOCNT = sum(BIOCNT)) |> 
+  arrange(desc(CATCNT))
+writexl::write_xlsx(catch_sum, path = "Data/catchsumallnets.xlsx")
+
+catch_sum[1:23,] |> 
+  knitr::kable(caption = "Table 1. Species captured.",) |> 
+   kable_classic(bootstrap_options = "striped", full_width = F, position="left")
+
+```
+
+&nbsp;
+
+
+## Catches by net 
+
+```{r}
+#examine # total fish caught in each net
+catch_sumbynet<-fn123%>%group_by(SAM)%>%summarize(catch=sum(CATCNT))
+catch_sumbynet<-left_join(catch_sumbynet,fn121)
+
+leaflet(catch_sumbynet)%>%addTiles() |> addCircles(lat = ~DD_LAT0, lng = ~DD_LON0, color="red",radius= ~catch*0.3, popup = ~SAM)%>%addProviderTiles("Esri.WorldImagery")%>%addProviderTiles("Esri.WorldImagery")
+
+
+```
+
+&nbsp;
+
+
+## CUEs
+
+```{r}
+species <- unique(fn123$SPC)
+
+spcsam <- merge(fn121, data.frame(SPC = species))
+
+catcheswithzeros <- left_join(spcsam, fn123, by=c("SAM", "PRJ_CD", "SPC"))
+catcheswithzeros$CATCNT[is.na(catcheswithzeros$CATCNT)]<-0
+catcheswithzeros <- append.spc.names(catcheswithzeros)
+
+CUE<-catcheswithzeros %>% group_by(SPC,SPC_NM.y) %>% 
+  summarize(ArithmeticmeanCATCNT = (round(mean(CATCNT),3)),GeometricmeanCATCNT = (round(exp(mean(log(CATCNT[CATCNT>0]))),3)), SE=sd(CATCNT)/sqrt(n()), SD=sd(CATCNT), RSE=round((round(SE,2)/ArithmeticmeanCATCNT)*100,0))%>%  arrange(desc(ArithmeticmeanCATCNT))
+
+
+kable(CUE,caption="Mean catch per trapnet")%>%kable_classic(full_width=F, html_font = "Cambria", position="left")
+
+ggplot(CUE,aes(reorder(SPC_NM.y, -ArithmeticmeanCATCNT),ArithmeticmeanCATCNT))+geom_bar(stat="identity",color="black")+theme_classic()+theme(axis.text.x=element_text(angle=90,vjust=0.5,hjust=1),axis.text=element_text(size=17,color="black"),axis.title=element_text(size=26),panel.border = element_rect(color="black",fill=NA,size=1.5))+labs(y="CUE")+labs(x="",y="CPUE (Catch per Trapnet)")+
+  geom_errorbar(aes(ymin=ArithmeticmeanCATCNT-SE, ymax=ArithmeticmeanCATCNT+SE), width=.2,position=position_dodge(.9))
+
+CUEcondensed<-filter(CUE, ! SPC%in% c("233","301","314"))
+
+ggplot(CUEcondensed,aes(reorder(SPC_NM.y, -mnCATCNT),mnCATCNT))+geom_bar(stat="identity",color="black")+theme_classic()+theme(axis.text.x=element_text(angle=90,vjust=0.5,hjust=1),axis.text=element_text(size=17,color="black"),axis.title=element_text(size=26),panel.border = element_rect(color="black",fill=NA,size=1.5))+labs(x="",y="CPUE (Catch per Trapnet)")+
+  geom_errorbar(aes(ymin=mnCATCNT-SE, ymax=mnCATCNT+SE), width=.2,position=position_dodge(.9))
+```
+
+&nbsp;
+
+```{r}
+#all speices CUE
+
+CUEallspecies<-fn123%>%group_by(SAM)%>%summarize(netCATCNT = sum(CATCNT))
+
+CUEallspecies<-CUEallspecies%>%summarize(mean=round(mean(netCATCNT),2),n=n(), SE=sd(netCATCNT)/sqrt(n))
+
+```
+
+
+# Average length
+
+```{r}
+library(reshape2)
+expandfn124<-uncount(fn124,SIZCNT)
+expandfn124$SIZ<-as.numeric(expandfn124$SIZ)
+
+Meanlengths<-expandfn124%>%group_by(SPC)%>%summarize(meanlength=round(mean(SIZ)))
+#meanlength<-fn124%>%group_by(SPC)%>%summarise(meanlength=round(sum(as.numeric(SIZ)*SIZCNT)/sum(SIZCNT),0)) - another option
+
+#add to CUE summary table
+summarytable<-full_join(CUE, Meanlengths,by="SPC")
+
+#write.csv(summarytable,"CUEtable2021.csv",row.names = F)
+
+```
+
+
+# Ages and legnth at age for select species
+
+```{r}
+ageinfo<-left_join(fn127,fn125)
+#need to remove walleye aged twice - use sonya 
+#ageinfo%>%group_by(SAM,SPC,FISH)%>%summarize(agers=length(unique(AGEMT))) #213 individual fish aged
+
+ageinfosummary<-ageinfo%>%filter(AGEMT %in% c("A61BM","211BI","289BI"))%>%group_by(SPC,AGEA)%>%summarize(agecount=n(),meanlen=round(mean(FLEN)))
+ageinfosummary <-  append.spc.names(ageinfosummary)
+
+
+#expand to get matrix of age counts and matrix of mean lengths 
+agecountsummary<-ageinfosummary%>%select(!c(meanlen,SPC,SPC_LAB))%>%na.omit()%>%spread(key=AGEA,value=agecount)
+
+lengthatagesummary<-ageinfosummary%>%select(!c(agecount,SPC,SPC_LAB))%>%na.omit()%>%spread(key=AGEA,value=meanlen)
+
+write.csv(agecountsummary,"agecounttable2021.csv",row.names = F)
+write.csv(lengthatagesummary,"agelengthtable2021.csv",row.names = F)
+
+```
+
+
+
+
+
+
+
+## Length Weight plots
+
+
+```{r}
+fn125$RWT<-as.numeric(fn125$RWT)
+ggplot(fn125, aes(TLEN, RWT))+geom_point()+
+  labs(y="RWT")+
+  facet_wrap(~ SPC)+
+  theme(axis.text.x = element_text(angle=50, hjust=1))
+```
+
+&nbsp;
+
+
+## Walleye 
+
+```{r}
+Wall123<-filter(fn123, SPC=="334")
+Wall123<-left_join(Wall123,fn121, by=c("SAM","PRJ_CD")) 
+
+Pike<-filter(fn123, SPC=="131")
+Pike<-left_join(Pike,fn121, by=c("SAM","PRJ_CD")) 
+
+Eel<-filter(fn123, SPC=="251")
+Eel<-left_join(Eel,fn121, by=c("SAM","PRJ_CD")) 
+
+leaflet(Eel) |> addTiles() |> addCircles(lat = ~DD_LAT0, lng = ~DD_LON0,radius= ~CATCNT*10,color="red",fillColor ="red", fillOpacity = 1)%>%addProviderTiles("Esri.WorldImagery")
+
+
+```
+
+&nbsp;
+
+### Aged Walleye
+```{r}
+
+#check that ages from each tech match - could make this better 
+fn127%>%group_by(AGEA,AGEMT)%>%summarize(N=length(AGEA))
+fn127<-filter(fn127, AGEMT=="A61SK")
+
+fn127$AGEA<-as.numeric(fn127$AGEA)
+ggplot(fn127, aes(AGEA))+geom_histogram(binwidth = 1)+scale_x_continuous(breaks = seq(from = 0, to = 10, by = 1))
+
+fn127$AGEA<-as.factor(fn127$AGEA)
+ageandbio<-left_join(fn127,fn125)
+ggplot(ageandbio, aes(FLEN, fill=AGEA))+geom_histogram(binwidth = 10)+theme_classic()+ scale_fill_brewer(palette="Set1")+theme(axis.text.x=element_text(angle=90,hjust=1),axis.text=element_text(size=23,color="black"),axis.title=element_text(size=26),panel.border = element_rect(color="black",fill=NA,size=1.5),legend.title=element_text(size=18,),legend.text = element_text(size=20),legend.position=c(0.88,0.85))+labs(x="Fork Length (mm)",y="Count")+scale_fill_manual(values=c("firebrick3","dodgerblue2","black"),name="Age")
+
+
+
+
+```
+
+&nbsp;
+
+##### Length at age
+```{r}
+ggplot(ageandbio, aes(AGEA,FLEN))+geom_point()
+
+#could add previous years to get growth curves?
+
+```
+
+&nbsp;
+
+
+### Lengthed Walleye
+
+```{r}
+#remove fn124???
+Walle<-filter(fn124, SPC=="334")
+Walle$SIZCNT<-as.numeric(Walle$SIZCNT)
+
+#CPUE
+sumsizcnt<-Walle%>%group_by(SPC,EFF,PRJ_CD,SIZ)%>%summarise(totalsizcnt=sum(SIZCNT))
+sumsizcnt$CPUE<-sumsizcnt$totalsizcnt/23
+
+sumsizcnt$SIZ<-as.numeric(sumsizcnt$SIZ)
+ggplot(sumsizcnt,aes(SIZ,CPUE))+geom_bar(stat="identity",fill="black")+scale_x_continuous(breaks = seq(from = 430, to = 750, by = 10))+theme_classic()+theme(axis.text.x=element_text(angle=90,hjust=1),axis.text=element_text(size=18,color="black"),axis.title=element_text(size=26),panel.border = element_rect(color="black",fill=NA,size=1.5))+labs(x="Fork Length (mm)",y="CPUE (Catch per Trapnet)")
+
+
+#raw counts
+Walleraw<-Walle%>%group_by(SIZ,SPC,EFF,PRJ_CD)%>%summarize(count=sum(SIZCNT))
+
+Walleraw$SIZ<-as.numeric(Walleraw$SIZ)
+ggplot(Walleraw,aes(SIZ,count))+geom_bar(stat="identity")+scale_x_continuous(breaks = seq(from = 430, to = 750, by = 10))+theme(axis.text.x=element_text(angle=45,hjust=1))
+
+```
+
+#### Length Weight plot
+
+```{r}
+Wall125<-fn125%>%filter(SPC=="334")
+ggplot(Wall125, aes(FLEN,RWT))+geom_point()
+
+#length(Wall125$SEX[Wall125$SEX =="2"])
+```
+
+
+
+### CUEs through times
+
+```{r}
+CUEs_prev<-readxl::read_xlsx("./Data/CUESummary0323.xlsx")
+CUEs_prev<-CUEs_prev%>%mutate(Species=ifelse(Species=="41"|Species=="51"|Species=="63"|Species=="61"|Species=="78"|Species=="76"|Species=="81"|Species=="42",paste("0",Species,sep=""),Species))
+
+CUEs_previous<-CUEs_prev%>%filter(REGION == "Hamilton Harbour")%>%select(Species,Year,AMEAN,ASE,ASD)
+CUEs_previous$Year<-as.factor(CUEs_previous$Year)
+
+CUEmod<-CUE%>%rename(AMEAN=ArithmeticmeanCATCNT,ASE=SE,ASD=SD,Species=SPC)%>%mutate(Year="2021")%>%select(Species,Year,AMEAN,ASE,ASD)
+CUEs_previousallspc<-rbind(CUEs_previous,CUEmod)%>%mutate(AMEAN=round(AMEAN,2),ASE=round(ASE,2),ASD=round(ASD,2),meanandsd=paste(AMEAN, ASD, sep=" ("),meanandsd=paste(meanandsd, ")",sep=""))%>%rename(SPC=Species)
+#get table for annual report
+annualCUEtable<-CUEs_previousallspc%>%subset(select= - c(ASE,AMEAN,ASD))%>%
+ ungroup()%>%spread(key=Year,value=meanandsd) #species missing zeros 
+annualCUEtable<-append.spc.names(annualCUEtable)
+#the "any species" are the tilapia and incandesint shark  catfish from 2018
+
+write.csv(annualCUEtable,"CUEthroughtimetable2021withSD.csv",row.names = F)
+
+
+#graph certain species
+CUEs_previous<-CUEs_previousallspc%>%rename(Species=SPC)%>%filter(Species%in% c("334","131","317","319","313","314","233","301","186","181","601","220","251","331","316","234"))
+#bind all year and species combos for plotting
+SPC<-data.frame(unique(CUEs_previous$Species)); names(SPC)<-"Species"
+Years<-data.frame(c("2006","2008",'2010',"2012","2014","2015","2016","2018","2019","2021"));colnames(Years)<-"Year"
+SPCYEAR<-merge(Years,SPC)
+CUEs_previous<-left_join(SPCYEAR,CUEs_previous)%>%replace(is.na(.),0)
+
+#split out species dataframes
+spc<-split(CUEs_previous,CUEs_previous$Species)
+names(spc)<-c("S131","S181","S186","S220","S233","S234","S251", "S301","S313","S314","S316","S317","S319","S331","S334","S601")
+lapply(names(spc), function(x) assign(x,spc[[x]],envir = .GlobalEnv))
+
+ggplot(S601, aes(Year,AMEAN))+geom_bar(stat="identity",color="black")+
+  labs(y="Mean Catch Count")+theme_classic()+
+  theme(axis.text=element_text(size=19,color="black"),axis.title=element_text(size=28),plot.title = element_text(size=31,hjust=0.5))+labs(x="Year",y="CPUE (Catch per Trapnet)")+ggtitle("Carassius auratus x Cyprinus carpio")
+  #geom_errorbar(aes(ymin=AMEAN-ASE, ymax=AMEAN+ASE), width=.2,position=position_dodge(.9)) 
+
+
+#plot goldfish, rudd, carp, hybrids
+CUEs_gen<-filter(CUEs_previous, Species%in% c("181","186","601","220"))
+ggplot(CUEs_gen, aes(Year,AMEAN, fill=Species))+geom_bar(stat="identity")+
+  labs(y="Mean Catch Count")+theme_classic()+
+  theme(axis.text=element_text(size=17,color="black"),axis.title=element_text(size=26),panel.border = element_rect(color="black",fill=NA,size=1.5),legend.title=element_text(size=18),legend.text = element_text(size=18),legend.position=c(0.13,0.8))+labs(x="Year",y="CPUE (Catch per Trapnet)")+scale_fill_manual(values = c("grey68", "grey50", "grey32", "black"),labels=c("Goldfish","Common Carp","Rudd","Hybrid"))
+```
+
+
+
+```{r}
+# catch of fish per trapnet
+CUEs_pernet<-readxl::read_xlsx("./Data/CUEbynet.xlsx")
+
+ggplot(CUEs_pernet, aes(Year,CPUE))+geom_bar(stat="identity",color="black")+
+  labs(y="Mean Catch Count")+theme_classic()+
+  theme(axis.text=element_text(size=17,color="black"),axis.title=element_text(size=26),panel.border = element_rect(color="black",fill=NA,size=1.5),axis.text.x =element_text(angle=90,hjust = 1))+labs(x="Year",y="CPUE (Catch per Trapnet)")+ggtitle("")+scale_x_continuous(breaks=seq(2005,2021,by=1))
+
+```
+
+
+
+
+```{r}
+### CUES through time for BUI report diff empbayments
+CUEmod$Year<-as.numeric(CUEmod$Year)
+CUEmod$EMB<-"Hamilton Harbour"
+CUEmod<-CUEmod%>%rename(SPC=Species)
+CUEmod<-append.spc.names(CUEmod)
+CUEmod<-CUEmod%>%rename(COMMON_NAM=SPC_NM,Species=SPC)%>%select(!SPC_LAB)
+
+allcues<-full_join(CUEmod,CUEs_prev)
+allcues<-allcues%>%mutate(Species = ifelse(nchar(Species)==2,as.character(paste("0",Species,sep="")),as.character(Species)),Timeframe=ifelse(Year<2013,'2006-2012','2013-2021'))
+
+cuesummarybytimeframeEMBs<-allcues%>%group_by(EMB,Species,Timeframe)%>%summarize(meanCUE=round(mean(AMEAN),2),SD=round(mean(ASD),2))%>%mutate_if(is.numeric,~replace_na(.,0))%>%rename(SPC=Species)
+
+#cuesummarybytimeframeEMBs<-cuesummarybytimeframeEMBs%>%pivot_wider(names_from = EMB,values_from = meanCUE)%>%mutate_if(is.numeric,~replace_na(.,0))%>%rename(SPC=Species)
+cuesummarybytimeframeEMBs<-append.spc.names(cuesummarybytimeframeEMBs)
+#the NA is the tilapia and iradescent shark catfish (0.08+0.04)
+
+write.csv(cuesummarybytimeframeEMBs,"meanCUE_bytimeframe_allEMBs_withSD.csv",row.names = F)
+
+
+
+
+## now do by EMB type
+allcues<-allcues%>%mutate(EMBtype=ifelse(EMB%in%c("Upper","Middle","West Lake","East Lake","Weller's Bay"),"Sheltered","Exposed"),EMBtype=ifelse(EMB%in%c("Lower","North Channel Kingston"),"Transitional",EMBtype),EMBtype=ifelse(EMB=="Hamilton Harbour","Hamilton",EMBtype))%>%filter(!EMB%in%c("Lake St. Francis","Thousand Islands"))
+cuesummarybytimeframeEMBtypes<-allcues%>%group_by(EMBtype,Species,Timeframe)%>%summarize(meanCUE=round(mean(AMEAN),2),SD=round(mean(ASD),2))%>%mutate_if(is.numeric,~replace_na(.,0))%>%rename(SPC=Species)%>%mutate(MeanandSD=paste(meanCUE, SD, sep=" ("),MeanandSD=paste(MeanandSD, ")",sep=""))
+
+cuebytimeframeEMBtypestable<-cuesummarybytimeframeEMBtypes%>%subset(select= - c(meanCUE,SD))%>%
+ ungroup()%>%spread(key=EMBtype,value=MeanandSD) #species missing zeros 
+
+
+#need to make 2 tables to export - one for each time frame, then combine in excel
+Spc<-as.data.frame(unique(cuebytimeframeEMBtypestable$SPC));colnames(Spc)<-"SPC" #need to keep species not in both time frames
+cuebytimeframeEMBtypestable<-append.spc.names(cuebytimeframeEMBtypestable)
+
+cuebytimeframe1EMBtypes<-cuebytimeframeEMBtypestable%>%filter(Timeframe=="2006-2012")
+cuebytimeframe1EMBtypes<-left_join(Spc,cuebytimeframe1EMBtypes)
+cuebytimeframe1EMBtypes<-append.spc.names(cuebytimeframe1EMBtypes)
+cuebytimeframe2EMBtypes<-cuebytimeframeEMBtypestable%>%filter(Timeframe=="2013-2021")
+cuebytimeframe2EMBtypes<-left_join(Spc,cuebytimeframe2EMBtypes)
+cuebytimeframe2EMBtypes<-append.spc.names(cuebytimeframe2EMBtypes)
+
+
+#cuesummarybytimeframeEMBtypes<-cuesummarybytimeframeEMBtypes%>%pivot_wider(names_from = EMBtype,values_from = meanCUE)%>%mutate_if(is.numeric,~replace_na(.,0))%>%rename(SPC=Species)
+
+#the NA is the tilapia and iradescent shark catfish (0.08+0.04)
+
+#write.csv(cuebytimeframe1EMBtypes,"meanCUE_timeframe1_EMBtypes_withSD.csv",row.names = F)
+#write.csv(cuebytimeframe2EMBtypes,"meanCUE_timeframe2_EMBtypes_withSD.csv",row.names = F)
+
+```
+
+
+
+```{r}
+#get total pike caught in hamilton 
+catchesalldata<-readxl::read_xlsx("./Data/CatchSummary01_19.xlsx")
+catchesalldata$EMB<-substring(catchesalldata$PRJ_CD,first=10,last=12)
+catchesalldata%>%filter(Spc=="131",EMB=="NSH")%>%dplyr::summarise(totalcatch=sum(CATCNT))
+
+
+```
+

@@ -209,7 +209,8 @@ IBIthroughtime<-read.csv("./Data/IBI2001to2022_SBupdated.csv") %>%
 IBI <- IBI %>% 
   mutate(Year=2023,
          EMBTYPE=ifelse(PRJ_CD %in% c("LOA_IA23_NSF", "LOA_IA23_NSI"),"River Reaches","Transitional"), #transitional will be assigned to NSK
-         EMB="St. Lawrence River",
+         EMB= ifelse(PRJ_CD == "LOA_IA23_NSF", "Lake St. Francis", 
+                     ifelse(PRJ_CD == "LOA_IA23_NSI", "Thousand Islands", "North Channel Kingston")),
          WATERBODY = ifelse(PRJ_CD == "LOA_IA23_NSF", "Lake St. Francis", 
                             ifelse(PRJ_CD == "LOA_IA23_NSI", "Thousand Islands", "North Channel Kingston")),
          AREA=NA,
@@ -223,5 +224,6 @@ IBIall <- full_join(IBIthroughtime,IBI) %>%
 test <- IBIall %>% 
   group_by(Year, WATERBODY, EMBTYPE) %>% 
   summarise(mean = mean(IBI))
-#write.csv(IBIall,"./Data/Exports/IBI2001to2023_updated.csv",row.names = F)
+
+write.csv(IBIall,"./Data/Exports/IBI2001to2023_ARupdated.csv",row.names = F)
 

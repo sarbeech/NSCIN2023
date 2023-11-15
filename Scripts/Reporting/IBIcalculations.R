@@ -120,6 +120,7 @@ fn123cond<-fn123revised %>%
 
 SPCgroups <- readxl::read_xlsx("./Data/Groups_1.xlsx") %>% 
   mutate(SPC = ifelse(nchar(SPC)==2,as.character(paste("0",SPC,sep="")),as.character(SPC)))
+SPCgroups <- SPCgroups[,1:16] #remove added column containing a comment
 
 IBIprep<-left_join(fn123cond,SPCgroups,by="SPC")
 
@@ -201,15 +202,26 @@ IBIcurrentyr<-IBI %>%
             mPBNIS=mean(PBNIS))
 
 
-
-
 #compare to other years
-IBIthroughtime<-read.csv("./Data/IBI2001to2022_SBupdated.csv")%>%mutate(SITE=as.character(SITE))
+IBIthroughtime<-read.csv("./Data/IBI2001to2022_SBupdated.csv") %>% 
+  mutate(SITE=as.character(SITE))
 #add extra fields 
-IBI<-IBI%>%mutate(Year=2022,EMBTYPE=ifelse(PRJ_CD=="LOA_IA22_NST","Exposed","Sheltered"),EMB=ifelse(PRJ_CD=="LOA_IA22_NST","Toronto Islands","Upper"),AREA=NA,WATERBODY=NA,REGION=NA)%>%mutate(EMB=ifelse(PRJ_CD=="LOA_IA22_NSB","Weller's Bay",EMB))%>%dplyr::rename(SITE=SUBSPACE)
+IBI <- IBI %>% 
+  mutate(Year=2023,
+         EMBTYPE=ifelse(PRJ_CD %in% c("LOA_IA23_NSF", "LOA_IA23_NSI"),"River Reaches","Transitional"), #transitional will be assigned to NSK
+         EMB="St. Lawrence River",
+         WATERBODY = ifelse(PRJ_CD == "LOA_IA23_NSF", "Lake St. Francis", 
+                            ifelse(PRJ_CD == "LOA_IA23_NSI", "Thousand Islands", "North Channel Kingston")),
+         AREA=NA,
+         REGION=NA) %>% 
+  dplyr::rename(SITE=SUBSPACE)
 #join current year to historical file
-IBIall<-full_join(IBIthroughtime,IBI)%>%filter(!is.na(IBI))
+IBIthroughtime$SAM <- as.character(IBIthroughtime$SAM) #making classes compatible
+IBIall <- full_join(IBIthroughtime,IBI) %>% 
+  filter(!is.na(IBI))
 
-
+test <- IBIall %>% 
+  group_by(Year, WATERBODY, EMBTYPE) %>% 
+  summarise(mean = mean(IBI))
 #write.csv(IBIall,"./Data/Exports/IBI2001to2023_updated.csv",row.names = F)
 

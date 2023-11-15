@@ -5,6 +5,7 @@ library(gfsR)
 library(readxl)
 library(tidyverse)
 library(styler)
+library(writexl)
 
 FN121 <- get_FN121(list(prj_cd = c("LOA_IA23_NSF", "LOA_IA23_NSI", "LOA_IA23_NSK")))
 FN123 <- get_FN123(list(prj_cd = c("LOA_IA23_NSF", "LOA_IA23_NSI", "LOA_IA23_NSK")))
@@ -82,6 +83,9 @@ CUE <- left_join(CUE, netsset)
 historicalCUE <- read_excel("./Data/CUESummary2001to2022_SBupdate.xlsx") %>% 
   mutate(Species = ifelse(nchar(Species) == 2, as.character(paste("0", Species, sep = "")), as.character(Species)))
 allcues <- full_join(historicalCUE, CUE)
+write_xlsx(allcues,"./Data/CUESummary2001to2023_ARupdate.xlsx")
+write_xlsx(allcues,"./Data/Exports/CUESummary2001to2023_ARupdate.xlsx")
+
 
 # cue by each EMB - not including timeframe
 cuesummarybyEMBs <- allcues %>%

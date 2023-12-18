@@ -8,7 +8,7 @@ library(tidyr)
 library(readxl)
 library(ggplot2)
 
-#Lake St Francis Data Check
+#Pull LSF access database
 src_db <- "//cihs.ad.gov.on.ca/MNRF/Groups/LEGACY/LRCPGLENFP00001/FWSB_Glenora/Information Resources/Field Season/2023/LOA_IA23_NSF.accdb" #pull access database from initial data entry 
 
 fetch_data <- function(table, prj_cd, src_db){
@@ -36,8 +36,6 @@ fn125_tags <- fetch_data("FN125_tags", params$prj_cd, src_db)
 fn126 <- fetch_data("FN126", params$prj_cd, src_db)
 fn127 <- fetch_data("FN127", params$prj_cd, src_db)
 gear_effort_process_types <- fetch_data("Gear_Effort_Process_Types", params$prj_cd, src_db)
-
-
 
 
 #FN011
@@ -70,10 +68,10 @@ FN121 <- fn121 %>%
          EFFDT0=as.Date(EFFDT0), 
          EFFTM0=format(as.POSIXct(EFFTM0), format = "%H:%M:%S"), 
          EFFTM1=format(as.POSIXct(EFFTM1), format = "%H:%M:%S"), 
-         WIND0 = gsub("(...)(.*)", "\\1-\\2", WIND0), 
-         WIND0 <- ifelse(grepl(".{3}-00$", FN121$WIND0), "000", FN121$WIND0)) %>%  #WIND0 needs to be in the format "XXX-XX" and tis adds the dash in between characters
+         WIND0 = gsub("(...)(.*)", "\\1-\\2", WIND0), #WIND0 needs to be in the format "XXX-XX" and this adds the dash in between characters
+         WIND0 <- ifelse(grepl(".{3}-00$", FN121$WIND0), "000", FN121$WIND0)) %>%  #converts any 0 wind into the proper 000 format
   select(!c(ENTRY_STATUS, LAT0, LON0, LAT1, LON1, GR, EFFDURCALC, EFF0, EFF1)) %>% 
-  mutate(WIND0 = ifelse(grepl(".{3}-00$", WIND0), "000", WIND0)) # any wind speed of 0 needs to be in the format "000" 
+  mutate(WIND0 = ifelse(grepl(".{3}-00$", WIND0), "000", WIND0)) # UNSURE WHY THIS IS HERE TWICE (see line 72) LIKLEY REMOVE -- any wind speed of 0 needs to be in the format "000" 
 
 #FN122
 FN122<-fn122
@@ -82,7 +80,7 @@ FN122<-fn122
 FN123 <- fn123 %>% 
   mutate(CATWT = CATWT/1000,
          SUBWT = SUBWT/1000) %>% 
-  select(!ENTRY_STATUS) #convert to KG -  can also do this in the database but you have to give the go ahead
+  select(!ENTRY_STATUS) #convert to KG 
 
 #FN123nonfish
 FN123_NonFish<-fn123nonfish
@@ -113,7 +111,7 @@ Gear_Effort_Process_Types <- gear_effort_process_types
 ######
 ## Send the tables directly to access - this can be finicky 
 ##Open connection to the target dataset
-TARGET <- odbcConnectAccess2007(file.choose()) #choose template database from downloaded version
+TARGET <- odbcConnectAccess2007(file.choose()) #manuaully choose template database from downloaded version
 
 
 #Append the data

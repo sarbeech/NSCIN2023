@@ -1,4 +1,4 @@
-###update IBIB
+###update IBI
 library(glfishr)
 library(dplyr)
 
@@ -162,6 +162,10 @@ IBI <- IBImetrics %>%
   group_by(PRJ_CD,SAM,SUBSPACE) %>%
   mutate(IBI=((SNATS+SNINS+SCENS+SPISS+PPISS+PGENS+PSPES+NNATS+BNATS+PNNIS+PBNIS)*(10/11)))
 
+FN123 %>% 
+  filter(SPC == "041") %>% 
+  summarise(sum = sum(CATCNT))
+
 #calculate the mean IBI and means of metrics for current year
 IBIcurrentyr<-IBI %>% 
   group_by(PRJ_CD)%>%
@@ -221,9 +225,7 @@ IBIthroughtime$SAM <- as.character(IBIthroughtime$SAM) #making classes compatibl
 IBIall <- full_join(IBIthroughtime,IBI) %>% 
   filter(!is.na(IBI))
 
-test <- IBIall %>% 
-  group_by(Year, WATERBODY, EMBTYPE) %>% 
-  summarise(mean = mean(IBI))
 
 write.csv(IBIall,"./Data/Exports/IBI2001to2023_ARupdated.csv",row.names = F)
+
 

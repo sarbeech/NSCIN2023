@@ -12,7 +12,6 @@ FN123 <- get_FN123(list(prj_cd = c("LOA_IA23_NSF", "LOA_IA23_NSI", "LOA_IA23_NSK
 FN124 <- get_FN124(list(prj_cd = c("LOA_IA23_NSF", "LOA_IA23_NSI", "LOA_IA23_NSK")))
 FN125 <- get_FN125(list(prj_cd = c("LOA_IA23_NSF", "LOA_IA23_NSI", "LOA_IA23_NSK")))
 
-
 setissues <- filter(FN121, EFFST > 1) %>% 
   select(PRJ_CD, SAM, EFFST, COMMENT1)
 
@@ -63,6 +62,8 @@ CUE <- catcheswithzeros %>%
                    SD = sd(CATCNT), 
                    RSE = round((round(SE, 2) / ArithmeticmeanCATCNT) * 100, 0)) %>%
   arrange(desc(ArithmeticmeanCATCNT))
+write.csv(CUE, "LSFMeanSPCCatch.csv", row.names = FALSE)
+
 # remove 0 CUEs
 
 CUE <- CUE %>%

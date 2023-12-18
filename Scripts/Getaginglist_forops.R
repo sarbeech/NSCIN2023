@@ -3,7 +3,7 @@
 
 library(RODBC)
 #pull in from access database
-src_db <- "//cihs.ad.gov.on.ca/MNRF/Groups/LEGACY/LRCPGLENFP00001/FWSB_Glenora/Information Resources/Field Season/2022/LOA_IA22_NSB.accdb"
+src_db <- "//cihs.ad.gov.on.ca/MNRF/Groups/LEGACY/LRCPGLENFP00001/FWSB_Glenora/Information Resources/Field Season/2023/LOA_IA23_NSF.accdb"
 
 fetch_data <- function(table, prj_cd, src_db){
   DBConnection <- odbcConnectAccess2007(src_db, uid = "", pwd = "")
@@ -15,56 +15,77 @@ fetch_data <- function(table, prj_cd, src_db){
 fn125 <- fetch_data("FN125", params$prj_cd, src_db)
 
 library(dplyr)
-ages<-fn125%>%group_by(SPC,AGEST)%>%dplyr::summarize(number=n(),sizemin=min(FLEN))
+ages <- fn125 %>% 
+  group_by(SPC,AGEST) %>%
+  dplyr::summarize(number=n(),
+                   sizemin=min(FLEN))
 
 
 #get entry sheets
-fn125<-fn125%>%filter(!is.na(AGEST))
+fn125 <- fn125 %>% 
+  filter(!is.na(AGEST))
+
+fn125 %>% 
+  group_by(SPC, AGEST) %>% 
+  summarise( n = n()) #154 scales, 55 otoliths, 3 pectoral spines, 25 operculums
+
 
 
 library(writexl)
+
+#select species of interest to age 
+
+lsf_aging23 <- fn125 %>% 
+  filter(SPC %in% c("131", "314", "316", "317", "331", "334", "483", "172", "168", "171", "319")) %>% 
+  mutate(AGEID="",PREFERRED="",AGEA="",AGEMT="",EDGE="",CONF="",NCA="",COMMENT7="") %>% 
+  select(PRJ_CD, SAM, EFF, GRP, SPC, FISH, AGEMT, AGEID, NCA, EDGE, CONF, AGEA, PREFERRED, COMMENT7, AGEST)
+lsf_aging23$AGEST <- gsub("28d", "28D", lsf_aging23$AGEST)
+
 #pike
-pike<-fn125%>%select(c("PRJ_CD","SAM","EFF","GRP","SPC","FISH","AGEST"))%>%filter(SPC=="131",AGEST%in%c("2","2D"))
-pike<-pike%>%mutate(AGEID="",PREFERRED="",AGEA="",AGEMT="",EDGE="",CONF="",NCA="",COMMENT7="")
-write_xlsx(pike,"./pikeaging.")
+pike <- lsf_aging23 %>%
+  filter(SPC=="131")
+
+write_xlsx(pike,"./Data/Ageing/pike_NSF_cleithrum_Contractor.xlsx")
+write_xlsx(pike,"./Data/Ageing/pike_NSF_Scale_Contractor.xlsx")
+write_xlsx(pike,"./Data/Ageing/pike_NSF_AnalFin.xlsx")
 
 #walleye
-wall<-fn125%>%select(c("PRJ_CD","SAM","EFF","GRP","SPC","FISH","AGEST"))%>%filter(SPC=="334",AGEST%in%c("2","2A","2B","A"))
-wall<-wall%>%mutate(AGEID="",PREFERRED="",AGEA="",AGEMT="",EDGE="",CONF="",NCA="",COMMENT7="")
-write_xlsx(wall,"./walleyeaging.xlsx")
+walleye <- lsf_aging23 %>%
+  filter(SPC=="334")
+write_xlsx(walleye,"./Data/Ageing/Walleye_NSF_otoliths.xlsx")
 
 #yellow perch
-yelperch<-fn125%>%select(c("PRJ_CD","SAM","EFF","GRP","SPC","FISH","AGEST"))%>%filter(SPC=="331",AGEST%in%c("2","2A","2B","A"))
-yelperch<-yelperch%>%mutate(AGEID="",PREFERRED="",AGEA="",AGEMT="",EDGE="",CONF="",NCA="",COMMENT7="")
-write_xlsx(yelperch,"./yellowperchaging.xlsx")
-
-#rock bass
-rockbass<-fn125%>%select(c("PRJ_CD","SAM","EFF","GRP","SPC","FISH","AGEST"))%>%filter(SPC=="311",AGEST%in%c("2","2A","2B","A"))
-rockbass<-rockbass%>%mutate(AGEID="",PREFERRED="",AGEA="",AGEMT="",EDGE="",CONF="",NCA="",COMMENT7="")
-write_xlsx(rockbass,"./rockbassaging.xlsx")
-
-#pumpkin
-pumpkin<-fn125%>%select(c("PRJ_CD","SAM","EFF","GRP","SPC","FISH","AGEST"))%>%filter(SPC=="313",AGEST%in%c("2","2A","2B","A"))
-pumpkin<-pumpkin%>%mutate(AGEID="",PREFERRED="",AGEA="",AGEMT="",EDGE="",CONF="",NCA="",COMMENT7="")
-write_xlsx(pumpkin,"./pumpkinseedaging.xlsx")
+Yperch <- lsf_aging23 %>%
+  filter(SPC=="331")
+write_xlsx(Yperch,"./Data/Ageing/YellowPerch_NSF.xlsx")
 
 #bluegill
-bluegill<-fn125%>%select(c("PRJ_CD","SAM","EFF","GRP","SPC","FISH","AGEST"))%>%filter(SPC=="314",AGEST%in%c("2","2A","2B","A"))
-bluegill<-bluegill%>%mutate(AGEID="",PREFERRED="",AGEA="",AGEMT="",EDGE="",CONF="",NCA="",COMMENT7="")
-write_xlsx(bluegill,"./bluegillaging.xlsx")
+bluegill <- lsf_aging23 %>%
+  filter(SPC=="314")
+write_xlsx(bluegill,"./Data/Ageing/bluegill_NSF.xlsx")
 
 #smallmouth
-SMB<-fn125%>%select(c("PRJ_CD","SAM","EFF","GRP","SPC","FISH","AGEST"))%>%filter(SPC=="316",AGEST%in%c("2","2A","2B","A"))
-SMB<-SMB%>%mutate(AGEID="",PREFERRED="",AGEA="",AGEMT="",EDGE="",CONF="",NCA="",COMMENT7="")
-write_xlsx(SMB,"./smallmouthaging.xlsx")
-
-
-#crappie
-crappie<-fn125%>%select(c("PRJ_CD","SAM","EFF","GRP","SPC","FISH","AGEST"))%>%filter(SPC=="319",AGEST%in%c("2","2A","2B","A"))
-crappie<-crappie%>%mutate(AGEID="",PREFERRED="",AGEA="",AGEMT="",EDGE="",CONF="",NCA="",COMMENT7="")
-write_xlsx(crappie,"./blackcrappieaging.xlsx")
+SMB <- lsf_aging23 %>%
+  filter(SPC=="316")
+write_xlsx(SMB,"./Data/Ageing/Smallmouth_NSF.xlsx")
 
 #largemouth
-LMB<-fn125%>%select(c("PRJ_CD","SAM","EFF","GRP","SPC","FISH","AGEST"))%>%filter(SPC=="317",AGEST%in%c("2","2A","2B","A"))
-LMB<-LMB%>%mutate(AGEID="",PREFERRED="",AGEA="",AGEMT="",EDGE="",CONF="",NCA="",COMMENT7="")
-write_xlsx(LMB,"./largemouthbassaging.xlsx")
+LMB <- lsf_aging23 %>%
+  filter(SPC=="317")
+write_xlsx(LMB,"./Data/Ageing/Largemouth_NSF.xlsx")
+
+#moxastoma sp. 
+moxa <- lsf_aging23 %>%
+  filter(SPC %in% c("168", "171", "172"))
+write_xlsx(moxa,"./Data/Ageing/Moxastoma_NSF.xlsx")
+
+#tench 
+tench <- lsf_aging23 %>%
+  filter(SPC=="483")
+write_xlsx(tench,"./Data/Ageing/tench_NSF_otolith.xlsx")
+
+#crappie
+crappie <- lsf_aging23 %>%
+  filter(SPC=="319")
+write_xlsx(crappie,"./Data/Ageing/crappie_NSF_otolith.xlsx")
+

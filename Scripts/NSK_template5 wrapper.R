@@ -8,7 +8,7 @@ library(tidyr)
 library(readxl)
 
 #pull in from access database
-src_db <- "//cihs.ad.gov.on.ca/MNRF/Groups/LEGACY/LRCPGLENFP00001/FWSB_Glenora/Information Resources/Field Season/2022/LOA_IA22_NSB.accdb"
+src_db <- "//cihs.ad.gov.on.ca/MNRF/Groups/LEGACY/LRCPGLENFP00001/FWSB_Glenora/Information Resources/Field Season/2023/LOA_IA23_NSK.accdb"
 
 fetch_data <- function(table, prj_cd, src_db){
   DBConnection <- odbcConnectAccess2007(src_db, uid = "", pwd = "")
@@ -31,6 +31,7 @@ fn123_nonfish <- fetch_data("FN123_NonFish", params$prj_cd, src_db)
 fn124 <- fetch_data("FN124", params$prj_cd, src_db)
 fn125 <- fetch_data("FN125", params$prj_cd, src_db)
 fn125_lamprey <- fetch_data("FN125_lamprey", params$prj_cd, src_db)
+fn125_tags <- fetch_data("FN125_tags", params$prj_cd, src_db)
 fn126 <- fetch_data("FN126", params$prj_cd, src_db)
 fn127 <- fetch_data("FN127", params$prj_cd, src_db)
 Gear_Effort_Process_Types<- fetch_data("Gear_Effort_Process_Types", params$prj_cd, src_db)
@@ -38,10 +39,11 @@ Gear_Effort_Process_Types<- fetch_data("Gear_Effort_Process_Types", params$prj_c
 
 FN011=fn011%>%mutate(PRJ_DATE0=as.Date(PRJ_DATE0),PRJ_DATE1=as.Date(PRJ_DATE1)) #remove times
 
-FN012NSB<-read_xlsx("./FN012NSB2023Mar.xlsx")
-FN012NSBfilt<-FN012NSB%>%select(!c(TLEN_MIN,FLEN_MIN,TLEN_MAX,FLEN_MAX,RWT_MIN,RWT_MAX,K_MIN_ERROR,K_MAX_ERROR,K_MIN_WARN,K_MAX_WARN))
-fn012update<-read_xlsx("./FN012NS12023Mar.xlsx")%>%select(c(SPC,TLEN_MIN,FLEN_MIN,TLEN_MAX,FLEN_MAX,RWT_MIN,RWT_MAX,K_MIN_ERROR,K_MAX_ERROR,K_MIN_WARN,K_MAX_WARN)) #add updated min/max values
-FN012<-full_join(FN012NSBfilt,fn012update)%>%filter(!is.na(PRJ_CD))
+FN012<-fn012
+#FN012NSB<-read_xlsx("./FN012NSB2023Mar.xlsx")
+#FN012NSBfilt<-FN012NSB%>%select(!c(TLEN_MIN,FLEN_MIN,TLEN_MAX,FLEN_MAX,RWT_MIN,RWT_MAX,K_MIN_ERROR,K_MAX_ERROR,K_MIN_WARN,K_MAX_WARN))
+#fn012update<-read_xlsx("./FN012NS12023Mar.xlsx")%>%select(c(SPC,TLEN_MIN,FLEN_MIN,TLEN_MAX,FLEN_MAX,RWT_MIN,RWT_MAX,K_MIN_ERROR,K_MAX_ERROR,K_MIN_WARN,K_MAX_WARN)) #add updated min/max values
+#FN012<-full_join(FN012NSBfilt,fn012update)%>%filter(!is.na(PRJ_CD))
 
 FN022=fn022%>%mutate(SSN_DATE0=as.Date(SSN_DATE0),SSN_DATE1=as.Date(SSN_DATE1)) #remove times
 
@@ -56,7 +58,7 @@ FN028$EFFTM0_GE=format(as.POSIXct(FN028$EFFTM0_GE), format = "%H:%M:%S")
 FN028$EFFTM0_LT=format(as.POSIXct(FN028$EFFTM0_LT), format = "%H:%M:%S")
 
 #FN121
-fn121<-fn121%>%select(! c(ENTRY_STATUS, LAT0,LAT1,LON0,LON1))%>%
+fn121<-fn121%>%select(! c(ENTRY_STATUS, LAT0,LAT1,LON0,LON1,EFF0,EFF1,EFFDURCALC,GR))%>%
   mutate(EFFDT0=as.Date(EFFDT0),EFFDT1=as.Date(EFFDT1),EFFTM0=format(as.POSIXct(fn121$EFFTM0), format = "%H:%M:%S"),EFFTM1=format(as.POSIXct(fn121$EFFTM1), format = "%H:%M:%S"))
 
 #FN121
@@ -67,6 +69,7 @@ FN121 <- data.frame(
   SSN = fn121$SSN,
   SUBSPACE = fn121$SUBSPACE, 
   MODE = fn121$MODE, 
+  GRID5=NA,
   EFFDT0 = fn121$EFFDT0,
   EFFTM0 = fn121$EFFTM0,
   EFFDT1 = (fn121$EFFDT1),
@@ -78,21 +81,19 @@ FN121 <- data.frame(
   DD_LON0 = fn121$DD_LON0,
   DD_LON1 = fn121$DD_LON1,
   DD_LAT1 = fn121$DD_LAT1, 
-  GRTEM = fn121$GRTEM,
   SITEM1 = fn121$SITEM1,
-  SITEM0 = NA,
-  SIDEP0 = fn121$GRDEP,
+  SITEM0 = fn121$SITEM0,
+  SIDEP0 = fn121$SIDEP0,
   SIDEP1=NA,
   GRDEPMAX = fn121$GRDEPMAX, 
   GRDEPMIN = fn121$GRDEPMIN,
-  GRDEPMID=fn121$XGRDEPMID,
-  GRDEP = fn121$GRDEP,
-  SECCHI0 = NA,
-  SECCHI1=NA,#I can add this in 
+  GRDEPMID=fn121$GRDEPMID,
+  SECCHI0 = fn121$SECCHI0,
+  SECCHI1=fn121$SECCHI1, 
   SLIME = fn121$SLIME,
   CREW = fn121$CREW,
   COMMENT1 = fn121$COMMENT1,
-  VESSEL = fn121$VESSEL ,
+  VESSEL = fn121$VESSEL,
   VESSEL_DIRECTION=NA,
   VESSEL_SPEED=NA,
   WARP=NA,
@@ -118,16 +119,24 @@ FN121 <- data.frame(
   WAVEHT0=NA,
   WAVEHT1=fn121$WAVEHT1,
   XWEATHER=fn121$XWEATHER,
-  VEGETATION=fn121$XVEG
+  VEGETATION=fn121$VEGETATION
 )
+library(leaflet)
+library(rgdal)
+leaflet()%>%addCircles(data=FN121,lng=~DD_LON0,lat=~DD_LAT0)
+BOQ <- readOGR("./Data/pec_detail.kml", verbose = FALSE)
+plot(BOQ)
+points(FN121$DD_LON0,FN121$DD_LAT0, pch =19, cex=1, col="red", bg="white", lwd=3)
 
 
-FN122=fn122%>%select(! c(EFFTM0,EFFTM1))
+
+
+FN122=fn122
 
 
 
 #FN123
-FN123=fn123
+FN123=fn123%>%select(!ENTRY_STATUS)
 
 
 
@@ -137,16 +146,11 @@ FN123_NonFish=fn123_nonfish
 
 
 #FN124
-FN124=fn124
+FN124=fn124%>%select(!ENTRY_STATUS)
 
 
 
 # fn125
-fn125$GON<-as.numeric(fn125$GON)
-fn125$GON<-ifelse(fn125$GON==20,10,fn125$GON)
-fn125$MAT<-ifelse(fn125$GON >19,"2","1")
-fn125$MAT<-ifelse(fn125$GON==99,"9",fn125$MAT)
-
 FN125 <- data.frame(
 PRJ_CD = fn125$PRJ_CD,
 SAM = fn125$SAM,
@@ -158,8 +162,8 @@ FLEN = fn125$FLEN,
 TLEN = fn125$TLEN,
 GIRTH = NA, 
 RWT = fn125$RWT, 
-EVISWT=fn125$XEVIS_WT,
-SEX = fn125$SEX, #fish$Sex, # fish$Sex forces NAs which causes proc val error
+EVISWT=fn125$EVISWT,
+SEX = fn125$SEX,
 MAT = fn125$MAT, 
 GON = as.character(fn125$GON),
 GONWT=fn125$GONWT,
@@ -169,11 +173,11 @@ NODC = fn125$NODC,
 NODA = fn125$NODA,
 TISSUE = fn125$TISSUE,
 AGEST = fn125$AGEST,
-FATE = fn125$FATE,#need to calculate this, some fish were just weighed, it is REQUIRED,
-STOM_CONTENTS_WT=fn125$XSTOM,
+FATE = fn125$FATE,# some fish were just weighed, it is REQUIRED,
+STOM_CONTENTS_WT=fn125$STOM_CONTENTS_WT,
+FDSAM=fn125$FDSAM,
 COMMENT5 = fn125$COMMENT5
 )
-#add SOMT_FLAG after
 
 
 
@@ -186,7 +190,7 @@ FN125_lamprey<-data.frame(
   GRP =  fn125_lamprey$GRP,
   FISH = fn125_lamprey$FISH,
   LAMID =fn125_lamprey$LAMID,
-  XLAM =fn125_lamprey$XLAM, #should this be filled?
+  XLAM =fn125_lamprey$XLAM,
   LAMIJC_TYPE= fn125_lamprey$LAMIJC_TYPE,
   LAMIJC_SIZE = fn125_lamprey$LAMIJC_SIZE, 
   COMMENT_LAM = fn125_lamprey$COMMENT_LAM
@@ -227,8 +231,8 @@ FN126 <- data.frame(
   FDCNT = fn126$FDCNT,#change to make NA values =0
   FDMES = fn126$FDMES, 
   FDVAL = fn126$FDVAL,
-  LIFESTAGE = fn126$LF,
-  COMMENT6 = ""
+  LIFESTAGE = fn126$LIFESTAGE,
+  COMMENT6 = fn126$COMMENT6
 )
 #FN126$LIFESTAGE[is.na(FN126$LIFESTAGE)] <- ""  
 #FN126$FDMES[is.na(FN126$FDMES)] <- ""  
@@ -260,25 +264,25 @@ FN127<-  data.frame(
 
 
 #fn125 stomach flags
-fn126flag<-FN126
-fn126flag$FDSAM<- "1"
-fn126flag<-fn126flag%>%select(PRJ_CD,SAM,EFF,SPC,FISH,FDSAM)
-fn126flag<-unique(fn126flag) #remove duplicates
+#fn126flag<-FN126
+#fn126flag$FDSAM<- "1"
+#fn126flag<-fn126flag%>%select(PRJ_CD,SAM,EFF,SPC,FISH,FDSAM)
+#fn126flag<-unique(fn126flag) #remove duplicates
 
-FN125<-left_join(FN125,fn126flag)
-FN125$FDSAM[is.na(FN125$FDSAM)]<-0
+#FN125<-left_join(FN125,fn126flag)
+#FN125$FDSAM[is.na(FN125$FDSAM)]<-0
 
 
 
 #####
 ##ERROR CHECKS
-species<-fn125%>%filter(SPC=="051")
+species<-fn125%>%filter(SPC=="316")
 plot(species$FLEN,species$RWT)
 
 
 
 #Append the data
-TARGET <- odbcConnectAccess2007("./Great_Lakes_Assessment_Template_5aprNSB.accdb") #copy the database from fieldseason/2022 into you R project file folder
+TARGET <- odbcConnectAccess2007("./Data/Great_Lakes_Assessment_Template_5NSK.accdb") 
 
 ##append will fail if numeric fields are blank instead of NA
 ##append will also sometimes give warnings if character fields are NA instead of blank

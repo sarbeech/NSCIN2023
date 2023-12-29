@@ -15,11 +15,18 @@ FN125 <- get_FN125(list(prj_cd = c("LOA_IA23_NSF", "LOA_IA23_NSI", "LOA_IA23_NSK
 setissues <- filter(FN121, EFFST > 1) %>% 
   select(PRJ_CD, SAM, EFFST, COMMENT1)
 
+
+INSPECT <- FN123 %>% 
+  filter(SAM == "20") #visually inspect the effort status for problematic sets (LSF SAM 2 and 9 deemed OK (Alex/Tom remember these SAMs))
+FN121$PRJ_CD == "LOA_IA23_NSF" & SAM %in% c("2", "9")
+
+
 FN121 <- FN121 %>% 
-  filter(!EFFST > 1)
+  filter(!EFFST > 1| PRJ_CD == "LOA_IA23_NSF" & SAM %in% c("2", "9"))
+
 netsset <- FN121 %>%
   group_by(PRJ_CD) %>%
-  dplyr::summarise(N = n())
+  dplyr::summarise(N = n());netsset
 
 # totalfish caught
 FN123 <- inner_join(FN121, FN123)
@@ -33,7 +40,7 @@ catch_sumbynet <- FN123 %>%
   group_by(PRJ_CD, SAM) %>%
   dplyr::summarize(catch = sum(CATCNT)) %>%
   group_by(PRJ_CD) %>%
-  dplyr::summarise(meancatch = mean(catch))
+  dplyr::summarise(meancatch = mean(catch));catch_sumbynet
 catch_sumbynet <- left_join(catch_sumbynet, FN121)
 
 # catches by species
@@ -62,7 +69,7 @@ CUE <- catcheswithzeros %>%
                    SD = sd(CATCNT), 
                    RSE = round((round(SE, 2) / ArithmeticmeanCATCNT) * 100, 0)) %>%
   arrange(desc(ArithmeticmeanCATCNT))
-write.csv(CUE, "LSFMeanSPCCatch.csv", row.names = FALSE)
+write.csv(CUE, "CUE_Species_NSCIN_2023.csv", row.names = FALSE)
 
 # remove 0 CUEs
 
@@ -102,7 +109,7 @@ locandyear <- merge(loc, Year)
 cuesummarybyEMBs <- left_join(locandyear, cuesummarybyEMBs) # add NA values for years not visited
 
 ggplot(filter(cuesummarybyEMBs, Year > 2005, EMB %in% c("Thousand Islands", "Lake St. Francis", "North Channel Kingston")), aes(Year, meanCUE, fill = EMB)) +
-  geom_bar(color = "black", stat = "identity", width = 0.6) +
+  geom_bar(color = "black", stat = "identity", width = 0.6, position = position_dodge()) +
   theme_classic() +
   theme(axis.text = element_text(size = 20, color = "black"), axis.title = element_text(size = 26)) +
   labs(x = "Year class", y = "Mean Catch") +

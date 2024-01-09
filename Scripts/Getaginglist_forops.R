@@ -80,3 +80,27 @@ getAgingLists(SPC_codes, NSI_aging23)
 ###################################################################################################################
 #select species of interest to age for NSK 
 #make sure to switch src_db to access the correct database for NSK
+fn125<-get_FN125(list(prj_cd="LOA_IA23_NSK"))
+ages <- fn125 %>% 
+  group_by(SPC,AGEST) %>%
+  dplyr::summarize(number=n(),
+                   sizemin=min(FLEN));ages
+#get entry sheets
+fn125 <- fn125 %>% 
+  filter(!is.na(AGEST))
+
+NSK_aging23 <- fn125 %>% 
+  filter(SPC %in% c("131","313", "314", "316", "317", "331", "334", "319","163","168")) %>% 
+  mutate(AGEID="",PREFERRED="",AGEA="",AGEMT="",EDGE="",CONF="",NCA="",COMMENT7="") %>% 
+  select(PRJ_CD, SAM, EFF, GRP, SPC, FISH, AGEMT, AGEID, NCA, EDGE, CONF, AGEA, PREFERRED, COMMENT7, AGEST)
+SPC_full_name <- get_species(list(spc = NSK_aging23$SPC, detail = TRUE), to_upper = FALSE)
+SPC_full_name <- SPC_full_name %>% 
+  select(spc, spc_nmco) %>% 
+  rename(SPC =  spc)
+NSK_aging23 <- left_join(NSK_aging23, SPC_full_name)
+
+SPC_codes <- unique(NSK_aging23$SPC)
+# Call the function with SPC_codes
+#NOTE THIS FUNCTION DOES NOT SEPARATE AND CREATE MULTIPLE FILES IF MULTIPLE AGING STRUCTURES ARE PRESENT
+# MUST CREATE COPIES AND RENAME THEM TO GET DIFFERENT FIELS FOR CONTRACTOR
+getAgingLists(SPC_codes, NSK_aging23)

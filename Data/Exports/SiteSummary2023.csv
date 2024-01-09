@@ -1,0 +1,4 @@
+"PRJ_CD","SurveyDates","WaterTemperature","Numoflifts","Hardsubstrate","Softsubstrate","Nocover","Lowcover","Medcover","Highcover","AverageGapdepth","Numoflifts_targetdepth","Numoflifts_belowtarget","Numoflifts_abovetarget"
+"LOA_IA23_NSF","2023-08-01-2023-08-23","21.02-22.67",35,12,23,2,21,10,2,2.24942857142857,16,12,7
+"LOA_IA23_NSI","2023-08-29-2023-09-19","19.18-23.3",36,7,29,8,22,6,8,2.3625,15,11,10
+"LOA_IA23_NSK","2023-09-06-2023-09-27","18-23.69",36,18,18,6,21,7,6,2.45833333333333,14,8,14

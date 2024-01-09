@@ -6,6 +6,7 @@ library(glfishr)
 #pull in from access database
 src_db <- "//cihs.ad.gov.on.ca/MNRF/Groups/LEGACY/LRCPGLENFP00001/FWSB_Glenora/Information Resources/Field Season/2023/LOA_IA23_NSI.accdb"
 src_db <- "//cihs.ad.gov.on.ca/MNRF/Groups/LEGACY/LRCPGLENFP00001/FWSB_Glenora/Information Resources/Field Season/2023/LOA_IA23_NSF.accdb"
+src_db <- "//cihs.ad.gov.on.ca/MNRF/Groups/LEGACY/LRCPGLENFP00001/FWSB_Glenora/Information Resources/Field Season/2023/LOA_IA23_NSK.accdb"
 
 fetch_data <- function(table, prj_cd, src_db){
   DBConnection <- odbcConnectAccess2007(src_db, uid = "", pwd = "")
@@ -32,8 +33,8 @@ library(writexl)
 getAgingLists <- function(SPC_Code, data){
   for (i in 1:length(SPC_Code)){
     dat <- data %>% 
-      filter(SPC == SPC_Code[1])
-    write_xlsx(dat, paste0("./Data/Ageing/", dat$spc_nmco[1], ".", substr(dat$PRJ_CD[1], nchar(dat$PRJ_CD[1]) - 2, nchar(dat$PRJ_CD[1])), dat$AGEST[1], ".xlsx"))
+      filter(SPC == SPC_Code[i])
+    write_xlsx(dat, paste0("./Data/Ageing/", dat$spc_nmco[i], ".", substr(dat$PRJ_CD[i], nchar(dat$PRJ_CD[i]) - 2, nchar(dat$PRJ_CD[i])), dat$AGEST[i], ".xlsx"))
     
   }
 }
@@ -75,3 +76,7 @@ SPC_codes <- unique(NSI_aging23$SPC)
 #NOTE THIS FUNCTION DOES NOT SEPARATE AND CREATE MULTIPLE FILES IF MULTIPLE AGING STRUCTURES ARE PRESENT
 # MUST CREATE COPIES AND RENAME THEM TO GET DIFFERENT FIELS FOR CONTRACTOR
 getAgingLists(SPC_codes, NSI_aging23)
+
+###################################################################################################################
+#select species of interest to age for NSK 
+#make sure to switch src_db to access the correct database for NSK

@@ -12,17 +12,9 @@ FN123 <- get_FN123(list(prj_cd = c("LOA_IA23_NSF", "LOA_IA23_NSI", "LOA_IA23_NSK
 FN124 <- get_FN124(list(prj_cd = c("LOA_IA23_NSF", "LOA_IA23_NSI", "LOA_IA23_NSK")))
 FN125 <- get_FN125(list(prj_cd = c("LOA_IA23_NSF", "LOA_IA23_NSI", "LOA_IA23_NSK")))
 
-setissues <- filter(FN121, EFFST > 1) %>% 
-  select(PRJ_CD, SAM, EFFST, COMMENT1)
 
-
-INSPECT <- FN123 %>% 
-  filter(SAM == "20") #visually inspect the effort status for problematic sets (LSF SAM 2 and 9 deemed OK (Alex/Tom remember these SAMs))
-FN121$PRJ_CD == "LOA_IA23_NSF" & SAM %in% c("2", "9")
-
-
-FN121 <- FN121 %>% 
-  filter(!EFFST > 1| PRJ_CD == "LOA_IA23_NSF" & SAM %in% c("2", "9"))
+FN121<-FN121 %>%
+  filter(!(PRJ_CD %in% "LOA_IA23_NSF" & SAM %in% c("22", "18", "26"))) #decided to keep the other 3 effort status of 5 since they had considerable catches and I remember these sets as fishing properly
 
 netsset <- FN121 %>%
   group_by(PRJ_CD) %>%
@@ -72,7 +64,6 @@ CUE <- catcheswithzeros %>%
 write.csv(CUE, "CUE_Species_NSCIN_2023.csv", row.names = FALSE)
 
 # remove 0 CUEs
-
 CUE <- CUE %>%
   filter(!ArithmeticmeanCATCNT == 0) %>%
   mutate(EMB = ifelse(PRJ_CD == "LOA_IA23_NSF", "Lake St. Francis", 

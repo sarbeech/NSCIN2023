@@ -9,9 +9,10 @@ FN125<-get_FN125(list(prj_cd=c("LOA_IA23_NSF", "LOA_IA23_NSI", "LOA_IA23_NSK")))
 
 #remove any compromised nets based on your judgment - look to comment field
 setissues<-filter(FN121, EFFST>1)%>%
-  select(PRJ_CD,SAM,SUBSPACE,EFFST,COMMENT1)
-FN121<-FN121%>%
-  filter(!EFFST>1)
+  select(PRJ_CD,SAM,SUBSPACE,EFFST,COMMENT1) #visually inspect the effort status for problematic sets (LSF SAM 2 and 9 deemed OK (Alex/Tom remember these SAMs))
+
+FN121 <- FN121 %>% 
+  filter(!EFFST > 1| PRJ_CD == "LOA_IA23_NSF" & SAM %in% c("2", "9"))
 FN123<-inner_join(FN121,FN123)#add site info to FN123 and removes EFFST>1 from FN123
 FN124<-inner_join(FN121,FN124)#add site info to FN124 and removes SAMs with EFFST>1
 
@@ -42,17 +43,26 @@ missing_spc_len_Wt <- wtcalc %>%
 #051 - should get a more accurate biomass estimate since catches were signifigant
 #502 no lenwt formula - use the 3 individuals that were caught (i beleive only one was weighed - use this weight)
 #483 no lenwt formula - use the weight of the individuals caught (make sure to remove 1 indivudal caught in wing)
-
+#232 -  use formula for brown bullhead
+#320 - no lenwt formula - use weight formula from bluegill
 #get catch weight per size bin solely using length 
-wtcalc$SIZWT <- exp((log(wtcalc$SIZ)*wtcalc$SLOPE + wtcalc$`Y-INTERCEP`)) /1000 * wtcalc$SIZCNTnew #missing 061 and 702 - need to update RWTREG file
-
+wtcalc$SIZWT <- exp((log(wtcalc$SIZ)*wtcalc$SLOPE + wtcalc$`Y-INTERCEP`)) /1000 * wtcalc$SIZCNTnew 
+see <- filter(wtcalc, PRJ_CD == "LOA_IA23_NSK" & SAM %in% c("5", "16") & SPC %in% c("131", "233"))
 #information required to add weight for 213
 fn125_213 <- get_FN125(list(prj_cd = c("SLR_IA22_LSF", "SLR_IA22_THI", "SLR_IA21_LSF", "SLR_IA21_THI")))
 spc213_wt <- mean(filter(fn125_213, SPC == "213")$RWT)/1000
+
+#info required for adding weight to 232 - using brown bullhead formula 
+BB <- wtcalc %>% 
+  filter(SPC == "233")
+#info required to add weight to 320 - using bluegill formula 
+BG <- wtcalc %>% 
+  filter(SPC == "314")
+
 #add weights to fish without any formula 
 wtcalc <- wtcalc %>% 
   mutate(SIZWT=ifelse(SPC=="502" & PRJ_CD=="LOA_IA23_NSF", filter(FN125, SPC == "502")$RWT/1000 , SIZWT), #add weight to 502
-         SIZWT=ifelse(SPC=="186" & PRJ_CD=="LOA_IA23_NSF", mean(filter(FN125, SPC == "186"& PRJ_CD=="LOA_IA23_NSF")$RWT,na.rm = T)/1000 , SIZWT), #add weight to 186
+         SIZWT=ifelse(SPC=="186" & PRJ_CD=="LOA_IA23_NSF", mean(filter(FN125, SPC == "186"& PRJ_CD=="LOA_IA23_NSF")$RWT,na.rm = T)/1000 , SIZWT), #add weight to 186 
          SIZWT=ifelse(SPC=="132" & PRJ_CD=="LOA_IA23_NSF", mean(filter(FN125, SPC == "132"& PRJ_CD=="LOA_IA23_NSF")$RWT,na.rm = T)/1000 , SIZWT), #add weight to 132
          SIZWT=ifelse(SPC=="051" & PRJ_CD=="LOA_IA23_NSF" & SAM == "7", filter(FN125, SPC == "051" & PRJ_CD=="LOA_IA23_NSF" & SAM == "7")$RWT/1000 , SIZWT),#adding specific weight of the exact fish 
          SIZWT=ifelse(SPC=="051" & PRJ_CD=="LOA_IA23_NSF" & SAM == "33", filter(FN125, SPC == "051"& PRJ_CD=="LOA_IA23_NSF" & SAM == "33")$RWT/1000 , SIZWT),#adding specific weight of the exact fish 
@@ -60,7 +70,9 @@ wtcalc <- wtcalc %>%
          SIZWT=ifelse(SPC=="051" & PRJ_CD=="LOA_IA23_NSF" & SAM == "21", mean(filter(FN125, SPC == "051"& PRJ_CD=="LOA_IA23_NSF")$RWT, na.rm = T)/1000 , SIZWT), #add weight to 051 - was not weighed
          SIZWT=ifelse(SPC=="483" & PRJ_CD=="LOA_IA23_NSF" & SAM == "1", filter(FN125, SPC == "483" & PRJ_CD=="LOA_IA23_NSF" & SAM == "1")$RWT/1000 , SIZWT), #adding specific weight of fish
          SIZWT=ifelse(SPC=="483" & PRJ_CD=="LOA_IA23_NSF" & SAM == "13", mean(filter(FN125, SPC == "051"& PRJ_CD=="LOA_IA23_NSF" & SAM == "33")$RWT, na.rm = T)/1000 , SIZWT), #adding mean weight of the two individuals caught
-         SIZWT=ifelse(SPC=="213" & PRJ_CD=="LOA_IA23_NSF", spc213_wt, SIZWT), #add weight for 213
+         SIZWT=ifelse(SPC=="213", spc213_wt, SIZWT), #add weight for 213
+         SIZWT=ifelse(SPC=="232", exp((log(wtcalc$SIZ)*BB$SLOPE[1] + BB$`Y-INTERCEP`[1])) /1000 * wtcalc$SIZCNTnew  , SIZWT),
+         SIZWT=ifelse(SPC=="320", exp((log(wtcalc$SIZ)*BG$SLOPE[1] + BG$`Y-INTERCEP`[1])) /1000 * wtcalc$SIZCNTnew  , SIZWT),
          SIZWT=ifelse(SPC %in% c("168", "171", "172", "173", "177") & PRJ_CD=="LOA_IA23_NSF", mean(filter(FN125, SPC %in% c("168", "171", "172", "173", "177") & PRJ_CD=="LOA_IA23_NSF")$RWT, na.rm = T)/1000 , SIZWT)) # add weight for redhorse species
 
 
@@ -92,7 +104,7 @@ for (i in 1:nrow(fn123revised)) {
     }
   }
 }
-
+#not sure why catwtnew includes 3 spc and sams with no catwt considering previous files incldue them - could be a result of joining files
 
 
 
@@ -161,10 +173,6 @@ IBImetrics<-IBImetrics%>%
 IBI <- IBImetrics %>% 
   group_by(PRJ_CD,SAM,SUBSPACE) %>%
   mutate(IBI=((SNATS+SNINS+SCENS+SPISS+PPISS+PGENS+PSPES+NNATS+BNATS+PNNIS+PBNIS)*(10/11)))
-
-FN123 %>% 
-  filter(SPC == "041") %>% 
-  summarise(sum = sum(CATCNT))
 
 #calculate the mean IBI and means of metrics for current year
 IBIcurrentyr<-IBI %>% 

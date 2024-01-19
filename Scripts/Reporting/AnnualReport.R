@@ -180,45 +180,49 @@ write.csv(CUE, "./Data/Exports/Catchsummary2023.csv", row.names = F)
 
 # add to historical time series -- this is completed in the 2023 data summary script
 CUE <- CUE %>%
-  dplyr::rename(AMEAN = ArithmeticmeanCATCNT, GMEAN = GeometricmeanCATCNT, ASE = SE, ASD = SD, Species = SPC, COMMON_NAM = SPC_NM) %>%
-  select(!meanlength)
-historicalCUE <- read_excel("./Data/Exports/CUESummary2001to2021_Sarahedit.xlsx") %>% mutate(Species = ifelse(nchar(Species) == 2, as.character(paste("0", Species, sep = "")), as.character(Species)))
+  dplyr::select(!meanlength)
+historicalCUE <- read_excel("./Data/CUESummary2001to2023_ARupdate.xlsx") %>%
+  mutate(Species = ifelse(nchar(Species) == 2, as.character(paste("0", Species, sep = "")), as.character(Species)))
 allcues <- full_join(historicalCUE, CUE)
 
 # cue by each EMB
 cuesummarybyEMBs <- allcues %>%
+  
   group_by(EMB, Species, Year) %>%
   dplyr::summarize(meanCUE = round(mean(AMEAN), 2), SD = round(mean(ASD), 2)) %>%
   mutate_if(is.numeric, ~ replace_na(., 0)) %>%
   dplyr::rename(SPC = Species)
 cuesummarybyEMBs <- append.spc.names(cuesummarybyEMBs)
 loc <- data.frame(EMB = unique(cuesummarybyEMBs$EMB))
-Year <- data.frame(Year = c(2006:2022))
+Year <- data.frame(Year = c(2006:2023))
 locandyear <- merge(loc, Year)
 cuesummarybyEMBs <- left_join(locandyear, cuesummarybyEMBs) # add NA values for years not visited
 
 filteredcue <- cuesummarybyEMBs %>%
-  filter(SPC %in% c("233", "234", "186", "181", "301", "251", "163", "041", "051")) %>%
-  mutate(EMB = ifelse(EMB == "Upper", "Upper Bay of Quinte", EMB))
-tiff("./Figures/CUE2.tiff", units = "in", width = 8, height = 8.8, res = 250, compression = "lzw")
-ggplot(filter(filteredcue, Year > 2005, EMB %in% c("Toronto Islands", "Weller's Bay", "Upper Bay of Quinte")), aes(Year, meanCUE, fill = EMB)) +
+  filter(SPC %in% c("233", "041", "051", "131", "331", "334", "319", "316", "317")) 
+
+tiff("./Data/Exports/CUEspc1.tiff", units = "in", width = 10, height = 8.8, res = 250, compression = "lzw")
+ggplot(filter(filteredcue, Year > 2005, EMB %in% c("Lake St. Francis", "Thousand Islands", "North Channel Kingston")), aes(Year, meanCUE, fill = EMB)) +
   geom_bar(color = "black", stat = "identity", width = 0.6) +
   facet_grid(SPC_NM ~ EMB, switch = "y", scales = "free_y") +
   theme_classic() +
+  scale_x_continuous(breaks = seq(2007, 2023, 4)) +
   labs(y = "Catch per Trapnet", x = "Year") +
   theme(axis.text = element_text(size = 10.5, color = "black"), axis.title = element_text(size = 15), legend.position = "none", strip.text.x = element_text(size = 15), strip.text.y = element_text(size = 10), strip.text.y.left = element_text(angle = 0), strip.placement = "outside", panel.border = element_rect(color = "black", fill = NA), strip.background = element_blank()) +
   scale_fill_manual(values = c("red2", "skyblue2", "black"))
 dev.off()
 
+
 # now do second set of species - cue graph #2
 filteredcue <- cuesummarybyEMBs %>%
-  filter(SPC %in% c("313", "311", "314", "316", "317", "319", "331", "334", "131")) %>%
-  mutate(EMB = ifelse(EMB == "Upper", "Upper Bay of Quinte", EMB))
-tiff("./Figures/CUE1.tiff", units = "in", width = 8, height = 8.8, res = 250, compression = "lzw")
-ggplot(filter(filteredcue, Year > 2005, EMB %in% c("Toronto Islands", "Weller's Bay", "Upper Bay of Quinte")), aes(Year, meanCUE, fill = EMB)) +
+  filter(SPC %in% c("186", "251", "271", "314", "313", "163", "172", "311", "132")) 
+
+tiff("./Data/Exports/CUEspc2.tiff", units = "in", width = 10, height = 8.8, res = 250, compression = "lzw")
+ggplot(filter(filteredcue, Year > 2005, EMB %in% c("Lake St. Francis", "Thousand Islands", "North Channel Kingston")), aes(Year, meanCUE, fill = EMB)) +
   geom_bar(color = "black", stat = "identity", width = 0.6) +
   facet_grid(SPC_NM ~ EMB, switch = "y", scales = "free_y") +
   theme_classic() +
+  scale_x_continuous(breaks = seq(2007, 2023, 4)) +
   labs(y = "Catch per Trapnet", x = "Year") +
   theme(axis.text = element_text(size = 10.5, color = "black"), axis.title = element_text(size = 15), legend.position = "none", strip.text.x = element_text(size = 15), strip.text.y = element_text(size = 10), strip.text.y.left = element_text(angle = 0), strip.placement = "outside", panel.border = element_rect(color = "black", fill = NA), strip.background = element_blank()) +
   scale_fill_manual(values = c("red2", "skyblue2", "black"))
@@ -262,57 +266,83 @@ ggplot(Agesummary, aes(as.factor(AGE), SumAges)) +
   labs(y = "Count", x = "Age") +
   theme(axis.text = element_text(size = 25, color = "black"), axis.title = element_text(size = 28), strip.text.x = element_text(size = 29), strip.text.y = element_text(size = 23), strip.text.y.left = element_text(angle = 0), strip.placement = "outside", panel.border = element_rect(color = "black", fill = NA), strip.background = element_blank())
 
+###################################################################################################################################################
 # get length distributions - export as 1800x 1100
+
 lengthdistpreds <- FN124 %>%
-  filter(SPC %in% c("334", "131", "317", "316")) %>%
-  mutate(EMB = ifelse(PRJ_CD == "LOA_IA22_NST", "Toronto Islands", "Upper Bay of Quinte")) %>%
-  mutate(EMB = ifelse(PRJ_CD == "LOA_IA22_NSB", "Weller's Bay", EMB))
+  filter(SPC %in% c("334", "131", "316", "319")) %>%
+  mutate(EMB = ifelse(PRJ_CD == "LOA_IA23_NSF", "Lake St. Francis", 
+                      ifelse(PRJ_CD == "LOA_IA23_NSI", "Thousand Islands", "North Channel Kingston"))) 
+
 lengthdistpreds <- append.spc.names(lengthdistpreds)
 ggplot(lengthdistpreds, aes(SIZ, SIZCNT)) +
   geom_bar(stat = "identity", col = "black", fill = "black") +
+  scale_x_continuous(name = "") +
+  scale_y_continuous(name = "") +
   facet_grid(SPC_NM ~ EMB, switch = "y", scales = "free_y") +
   theme_classic() +
-  labs(y = "Count", x = "Length") +
-  theme(axis.text = element_text(size = 25, color = "black"), axis.title = element_text(size = 2), strip.text.x = element_text(size = 31), strip.text.y = element_text(size = 23), strip.text.y.left = element_text(angle = 0), strip.placement = "outside", panel.border = element_rect(color = "black", fill = NA), strip.background = element_blank())
+  theme(axis.text = element_text(size = 24, color = "black"), 
+        axis.title = element_text(size = 2), 
+        strip.text.x = element_text(size = 31), 
+        strip.text.y = element_text(size = 23), 
+        strip.text.y.left = element_text(angle = 0), 
+        strip.placement = "outside", 
+        panel.border = element_rect(color = "black", fill = NA), 
+        strip.background = element_blank())
 
 
 
 # get IBI figures (assume IBI script has aleady been run and the data file updated)
 # remove transitional areas - just show sheltered vs exposed
-IBImeanthroughtime <- read.csv("./Data/Exports/IBI2001to2022_SBupdated.csv")
-IBImeanthroughtime <- IBImeanthroughtime %>% filter(EMBTYPE %in% c("Sheltered", "Exposed"))
+IBImeanthroughtime <- read.csv("./Data/Exports/IBI2001to2023_ARupdated.csv")
 
-library(ggpattern)
 IBIallEMB <- IBImeanthroughtime %>%
   group_by(EMB, EMBTYPE) %>%
-  dplyr::summarise(mSNAT = mean(SNAT), mSNIN = mean(SNIN), mSCEN = mean(SCEN), mSPIS = mean(SPIS), mPPIS = mean(PPIS), mPGEN = mean(PGEN), mPSPE = mean(PSPE), mNNAT = mean(NNAT), mBNAT = mean(BNAT), mPNNI = mean(PNNI), mPBNI = mean(PBNI), mIBI = mean(IBI), sdIBI = sd(IBI), sdPPIS = sd(PPIS), sdPSPE = sd(PSPE)) %>%
-  filter(EMBTYPE %in% c("Sheltered", "Exposed"))
+  dplyr::summarise(mSNAT = mean(SNAT), mSNIN = mean(SNIN), mSCEN = mean(SCEN), mSPIS = mean(SPIS), mPPIS = mean(PPIS), mPGEN = mean(PGEN), mPSPE = mean(PSPE), mNNAT = mean(NNAT), mBNAT = mean(BNAT), mPNNI = mean(PNNI), mPBNI = mean(PBNI), mIBI = mean(IBI), sdIBI = sd(IBI), sdPPIS = sd(PPIS), sdPSPE = sd(PSPE))
 
-tiff("./Figures/IBI_AR.tiff", units = "in", width = 16, height = 8.5, res = 250, compression = "lzw")
-ggplot(IBIallEMB, aes(reorder(EMB, mIBI), mIBI, fill = EMBTYPE)) +
-  geom_bar(stat = "identity", color = "black") +
+
+
+
+tiff("./Data/Exports/IBI_AR_23.tiff", units = "in", width = 16, height = 8.5, res = 250, compression = "lzw")
+ggplot(IBIallEMB, aes(reorder(EMB, mIBI), mIBI, fill = EMBTYPE, colour = EMBTYPE)) +
+  geom_bar(stat = "identity", colour = "black") +
   geom_errorbar(aes(x = EMB, ymin = mIBI - sdIBI, ymax = mIBI + sdIBI), color = "grey40") +
   theme_classic() +
-  theme(axis.text = element_text(size = 17, color = "black"), axis.title = element_text(size = 26), axis.text.x = element_text(angle = 45, hjust = 1), panel.border = element_rect(color = "black", fill = NA, size = 1.5), panel.grid.major.y = element_line(color = "grey30"), legend.title = element_blank(), legend.text = element_text(size = 20), legend.position = c(0.20, 0.85)) +
+  theme(axis.text = element_text(size = 20, color = "black"), 
+        axis.title = element_text(size = 26), 
+        axis.text.x = element_text(angle = 45, hjust = 1), 
+        panel.border = element_rect(color = "black", fill = NA, size = 1.5), 
+        panel.grid.major.y = element_line(color = "grey30"), 
+        legend.title = element_blank(), 
+        legend.text = element_text(size = 20), 
+        legend.position = c(0.10, 0.85)) +
   labs(y = "IBI", x = "") +
-  scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, by = 20)) +
-  scale_fill_manual(values = c(Sheltered = "black", Exposed = "grey")) +
-  geom_hline(yintercept = 55, col = "red", linetype = "dotted", linewidth = 1.2)
+  scale_y_continuous(limits = c(0, 105), breaks = seq(0, 100, by = 20), expand = c(0,0)) +
+  scale_fill_manual(values = c("grey88", "white", "black", "gray41"), labels = c("Exposed", "River Reaches", "Sheltered", "Transitional")) 
+  #geom_hline(yintercept = 55, col = "red", linetype = "dotted", linewidth = 1.2)
 dev.off()
 
-tiff("./Figures/PPB_AR.tiff", units = "in", width = 12, height = 10, res = 250, compression = "lzw")
+
+
+tiff("./Data/Exports/IBI_PPB_AR_23.tiff", units = "in", width = 16, height = 10, res = 250, compression = "lzw")
 ggplot(IBIallEMB, aes(reorder(EMB, mPPIS), mPPIS, fill = EMBTYPE)) +
   geom_bar(stat = "identity", color = "black") +
   geom_errorbar(aes(x = EMB, ymin = mPPIS - sdPPIS, ymax = mPPIS + sdPPIS), color = "grey40") +
   theme_classic() +
-  theme(axis.text = element_text(size = 22, color = "black"), axis.title = element_text(size = 30), axis.text.x = element_text(angle = 45, hjust = 1), panel.border = element_rect(color = "black", fill = NA, size = 1.5), legend.title = element_blank(), legend.text = element_text(size = 28), legend.position = c(20, 85)) +
+  theme(axis.text = element_text(size = 22, color = "black"), 
+        axis.title = element_text(size = 30), 
+        axis.text.x = element_text(angle = 45, hjust = 1), 
+        panel.border = element_rect(color = "black", fill = NA, size = 1.5), 
+        legend.title = element_blank(), 
+        legend.text = element_text(size = 28), 
+        legend.position = c(20, 85)) +
   labs(y = "PPB", x = "") +
-  scale_y_continuous(limits = c(0, 80), breaks = seq(0, 90, by = 20)) +
-  scale_fill_manual(values = c(Sheltered = "black", Exposed = "grey")) +
+  scale_y_continuous(limits = c(-5, 100), breaks = seq(0, 100, by = 20), expand = c(0,0)) +
+  scale_fill_manual(values = c("grey88", "white", "black", "gray41"), labels = c("Exposed", "River Reaches", "Sheltered", "Transitional")) +
   geom_hline(yintercept = 20, col = "red", linetype = "dotted", linewidth = 1.6)
 dev.off()
 
-tiff("./Figures/PSPE_AR.tiff", units = "in", width = 12, height = 10, res = 250, compression = "lzw")
+tiff("./Data/Exports/IBI_PSPE_AR_23.tiff", units = "in", width = 17, height = 10, res = 250, compression = "lzw")
 ggplot(IBIallEMB, aes(reorder(EMB, mPSPE), mPSPE, fill = EMBTYPE)) +
   geom_bar(stat = "identity", color = "black") +
   geom_errorbar(aes(x = EMB, ymin = mPSPE - sdPSPE, ymax = mPSPE + sdPSPE), color = "grey50") +
@@ -320,13 +350,13 @@ ggplot(IBIallEMB, aes(reorder(EMB, mPSPE), mPSPE, fill = EMBTYPE)) +
   theme(axis.text = element_text(size = 22, color = "black"), axis.title = element_text(size = 30), axis.text.x = element_text(angle = 45, hjust = 1), panel.border = element_rect(color = "black", fill = NA, size = 1.5), legend.title = element_blank(), legend.text = element_text(size = 28), legend.position = c(20, 85)) +
   labs(y = "PSPE", x = "") +
   scale_y_continuous(limits = c(0, 85), breaks = seq(0, 90, by = 20)) +
-  scale_fill_manual(values = c(Sheltered = "black", Exposed = "grey")) +
+  scale_fill_manual(values = c("grey88", "white", "black", "gray41"), labels = c("Exposed", "River Reaches", "Sheltered", "Transitional")) +
   geom_hline(yintercept = 40, col = "red", linetype = "dotted", linewidth = 1.6)
 dev.off()
 
 
 # get values for 2022
 IBIbyyear <- IBImeanthroughtime %>%
-  group_by(EMB, EMBTYPE, PRJ_CD, Year) %>%
-  dplyr::summarise(mSNAT = mean(SNAT), mSNIN = mean(SNIN), mSCEN = mean(SCEN), mSPIS = mean(SPIS), mPPIS = mean(PPIS), mPGEN = mean(PGEN), mPSPE = mean(PSPE), mNNAT = mean(NNAT), mBNAT = mean(BNAT), mPNNI = mean(PNNI), mPBNI = mean(PBNI), mIBI = mean(IBI), sdIBI = sd(IBI), sdPPIS = sd(PPIS), sdPSPE = sd(PSPE)) %>%
-  filter(EMBTYPE %in% c("Sheltered", "Exposed"))
+  filter(Year %in% c("2023")) %>% 
+  group_by(PRJ_CD) %>%
+  dplyr::summarise(mSNAT = mean(SNAT), mSNIN = mean(SNIN), mSCEN = mean(SCEN), mSPIS = mean(SPIS), mPPIS = mean(PPIS), mPGEN = mean(PGEN), mPSPE = mean(PSPE), mNNAT = mean(NNAT), mBNAT = mean(BNAT), mPNNI = mean(PNNI), mPBNI = mean(PBNI), mIBI = mean(IBI), sdIBI = sd(IBI), sdPPIS = sd(PPIS), sdPSPE = sd(PSPE))

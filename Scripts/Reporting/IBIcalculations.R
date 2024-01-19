@@ -127,7 +127,7 @@ for (i in 1:nrow(fn123revised)) {
 
 #condense and add in species groupings 
 fn123cond<-fn123revised %>% 
-  select(PRJ_CD,SAM,SPC,SUBSPACE,CATCNT,CATWTnew) %>% 
+  dplyr::select(PRJ_CD,SAM,SPC,SUBSPACE,CATCNT,CATWTnew) %>% 
   dplyr::rename(CATWT=CATWTnew)
 
 SPCgroups <- readxl::read_xlsx("./Data/Groups_1.xlsx") %>% 
